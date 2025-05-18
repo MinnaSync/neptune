@@ -15,7 +15,7 @@ async function logRequest(c: Context, next: Next) {
     const duration = `${end - start}ms`.padEnd(8);
     const status = c.res.status;
 
-    logger.info(`${status} | ${duration} | ${method}${path}${query ? `?${query}` : ''}`);
+    logger.info(`${status} | ${duration} | ${method} ${path}${query ? `?${query}` : ''}`);
 }
 
 export default {
