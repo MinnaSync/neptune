@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import logger from "../util/logger";
+import logger from "../../util/logger";
 
 async function logRequest(c: Context, next: Next) {
     const method = c.req.method;
