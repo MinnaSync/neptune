@@ -8,6 +8,7 @@ import animepahe from "../../providers/animepahe";
 import client from "../client";
 
 const app = new Hono()
+// GET /meta
 .get(
     "/meta",
     zValidator('query', z.object({
@@ -38,6 +39,7 @@ const app = new Hono()
         return c.json(meta!);
     }
 )
+// GET /info
 .get(
     "/info",
     zValidator('query', z.object({
@@ -105,6 +107,7 @@ const app = new Hono()
         });
     }
 )
+// GET /search/:query
 .get(
     '/search/:query',
     zValidator('query', z.object({
@@ -138,6 +141,7 @@ const app = new Hono()
         return c.json(results);
     }
 )
+// GET /streams/animepahe/:id/:session
 .get(
     "/streams/animepahe/:id/:session",
     async (c) => {
