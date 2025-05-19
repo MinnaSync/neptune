@@ -1,4 +1,4 @@
-import type { AnimeInfo, Episodes, AnimeSearch, AnimeStreams } from "api-types";
+import type { AnimeInfo, AnimeSearch, AnimeStreams } from "api-types";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
@@ -69,6 +69,11 @@ const app = new Hono()
                 const res = await client.anime.meta.$get({
                     query: { id: url.split('/').pop()!, resource: "anilist" },
                 });
+
+                if (!res.ok) {
+                    c.status(500);
+                    return c.json({});
+                }
 
                 meta = await res.json();
             }
