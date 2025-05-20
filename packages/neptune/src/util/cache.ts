@@ -3,11 +3,13 @@ import logger from "./logger";
 
 const cache =
     (process.env.REDIS_HOST && process.env.REDIS_PORT
-    && new ioredis({
-        port: parseInt(process.env.REDIS_PORT),
-        host: process.env.REDIS_HOST,
-        password: process.env.REDIS_PASSWORD,
-    })) as ioredis | null;
+        ? new ioredis({
+            port: parseInt(process.env.REDIS_PORT),
+            host: process.env.REDIS_HOST,
+            password: process.env.REDIS_PASSWORD,
+        })
+        : null
+    );
 
 if (!cache) {
     logger.warn("Unable to initialize Redis, caching will be disabled.");

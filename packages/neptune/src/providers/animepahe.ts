@@ -10,11 +10,14 @@ type AnimeInfo = {
         url: string;
     }[];
     episodes: {
-        id: string;
-        preview: string;
-        episode: number;
-        url: string;
-    }[];
+        hasNextPage: boolean;
+        list: {
+            id: string;
+            preview: string;
+            episode: number;
+            url: string;
+        }[];
+    };
 };
 
 type AnimeEpisodes = {
@@ -128,6 +131,9 @@ async function getEpisodeStreams(id: string, session: string) {
  * @param query The URL query to make.
  */
 async function getEpisodes(query: { id: string; sort?: "episode_asc" | "episode_desc", page?: string }) {
+    const cached = await cache.jsonGet<AnimeInfo['episodes']>(`animepahe:episodes:${query.id}:page_${query?.page || "1"}:sort_${query?.sort || "episode_asc"}`);
+    if (cached) return okAsync(cached);
+
     const res = await request(new URL(`/api`, BASE_URL).toString(), 'get', HEADERS(query.id),
         { m: 'release', ...query }
     );
@@ -137,16 +143,27 @@ async function getEpisodes(query: { id: string; sort?: "episode_asc" | "episode_
     }
 
     const result: APIResponse<AnimeEpisodes[]> = res.value;
+    const episodes: AnimeInfo['episodes'] =  {
+        hasNextPage: result.current_page < result.last_page,
+        list: result.data.map((ep) => ({
+            id: `${query.id}/${ep.session}`,
+            preview: ep.snapshot,
+            episode: ep.episode,
+            url: `https://animepahe.ru/play/${query.id}/${ep.session}`,
+        }))
+    }
 
-    return okAsync(result);
+    await cache.jsonSet(`animepahe:episodes:${query.id}:page_${query?.page || "1"}:sort_${query?.sort || "episode_asc"}`, episodes, 60 * 30);
+
+    return okAsync(episodes);
 }
 
 /**
- * Get the animepahe information for an anime.
- * @param id The anime id.
+ * Get the page information for an anime.
+ * @param id  The ID of the anime.
  */
-async function getAnime(id: string) {
-    const cached = await cache.jsonGet<AnimeInfo>(`animepahe:info:${id}`);
+async function getAnimePage(id: string) {
+    const cached = await cache.jsonGet<AnimeInfo['externalLinks']>(`animepahe:info:${id}`);
     if (cached) return okAsync(cached);
 
     const res = await request(new URL(`/anime/${id}`, BASE_URL).toString(), 'get', HEADERS(id), {});
@@ -158,7 +175,7 @@ async function getAnime(id: string) {
     const html = res.value;
     const $ = cheerio.load(html);
 
-    const externalLinks: { type: string; url: string; }[] = [];
+    const externalLinks: AnimeInfo['externalLinks'] = [];
     for (const el of $('.external-links > a').toArray()) {
         const type = $(el).text().trim();
         const link = $(el).attr('href')?.trim().replace(/^\/+/, ''); // links for some reason have 2 leading slashes.
@@ -168,27 +185,32 @@ async function getAnime(id: string) {
         externalLinks.push({ type, url: `https://${link}` });
     }
 
-    const episodes = await getEpisodes({ id: id, sort: 'episode_asc', page: '1' });
-    if (episodes.isErr()) {
-        return okAsync({
-            externalLinks,
-            episodes: [],
-        });
+    await cache.jsonSet(`animepahe:info:${id}`, externalLinks, 60 * 60 * 7);
+
+    return okAsync(externalLinks);
+}
+
+/**
+ * Get the animepahe information for an anime.
+ * @param id The anime id.
+ */
+async function getAnime(id: string, query?: { page?: string }) {
+    const page = await getAnimePage(id);
+    if (page.isErr()) {
+        return page;
     }
 
-    const info: AnimeInfo = {
-        externalLinks,
-        episodes: episodes.value.data.map((ep) => ({
-            id: `${id}/${ep.session}`,
-            preview: ep.snapshot,
-            episode: ep.episode,
-            url: `https://animepahe.ru/play/${id}/${ep.session}`,
-        })),
-    };
+    const episodes = await getEpisodes({ id: id, sort: 'episode_desc', page: query?.page || "1" });
+    if (episodes.isErr()) {
+        return episodes
+    }
 
-    await cache.jsonSet(`animepahe:info:${id}`, info, 60 * 30);
+    const animeInfo: AnimeInfo = {
+        externalLinks: page.value,
+        episodes: episodes.value,
+    }
 
-    return okAsync(info);
+    return okAsync(animeInfo);
 }
 
 async function searchAnime(query: { q: string; }) {

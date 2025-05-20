@@ -13,18 +13,32 @@ export type Meta = {
     poster: string | null;
     background: string | null;
 
-    title: string;
+    title: {
+        english: string;
+        romaji: string;
+        native: string;
+    };
     description: string | null;
 
+    year: number;
     type: string;
     rating: number | null;
     genres: string[];
+    studios: string[];
     is_nsfw: boolean;
+
+    trailer: {
+        id: string;
+        platform: string;
+    } | null;
 };
 
 export interface AnimeInfo {
     meta: Meta;
-    episodes: Episodes[];
+    details: {
+        hasNextPage: boolean;
+        episodes: Episodes[];
+    };
 };
 
 export interface AnimeSearch {

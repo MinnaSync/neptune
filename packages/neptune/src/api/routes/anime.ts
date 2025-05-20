@@ -27,12 +27,23 @@ const app = new Hono()
                 color: anilistData.coverImage.color,
                 poster: anilistData.coverImage.large,
                 background: anilistData.bannerImage,
-                title: anilistData.title.english,
+                title: {
+                    english: anilistData.title.english,
+                    romaji: anilistData.title.romaji,
+                    native: anilistData.title.native,
+                },
                 description: anilistData.description,
+                year: anilistData.seasonYear,
                 type: anilistData.format,
                 rating: anilistData.meanScore,
                 genres: anilistData.genres,
+                studios: anilistData.studios.nodes.map((s) => s.name),
                 is_nsfw: anilistData.isAdult,
+
+                trailer: anilistData.trailer ? {
+                    id: anilistData.trailer.id,
+                    platform: anilistData.trailer.site,
+                } : null,
             };
         }
         
@@ -46,15 +57,16 @@ const app = new Hono()
         id: z.string(),
         resource: z.enum(['anilist']),
         provider: z.enum(['animepahe']),
+        page: z.string().optional(),
     })),
     async (c) => {
-        const { id, resource, provider } = c.req.query();
+        const { id, resource, provider, page } = c.req.query();
 
         let meta: AnimeInfo['meta'];
-        let episodes: AnimeInfo['episodes'];
+        let details: AnimeInfo['details'];
 
         if (provider === "animepahe") {
-            const animepaheInfo = await animepahe.getAnime(id);
+            const animepaheInfo = await animepahe.getAnime(id, { page: page });
 
             if (animepaheInfo.isErr()) {
                 c.status(500);
@@ -80,30 +92,21 @@ const app = new Hono()
                 meta = await res.json();
             }
 
-            episodes = animepaheInfo.value.episodes.map((e) => ({
-                id: e.id,
-                title: `Episode ${e.episode}`,
-                episode: e.episode,
-                preview: e.preview,
-                streaming_link: e.url,
-            }));
-
-            // episodes = animepaheInfo.value.episodes.reduce((acc, curr) => {
-            //     acc.push({
-            //         id: curr.id,
-            //         title: `Episode ${curr.episode}`,
-            //         episode: curr.episode,
-            //         preview: curr.preview,
-            //         streaming_link: curr.url,
-            //     });
-
-            //     return acc;
-            // }, [] as Episodes[]);
+            details = {
+                hasNextPage: animepaheInfo.value.episodes.hasNextPage,
+                episodes: animepaheInfo.value.episodes.list.map((e) => ({
+                    id: e.id,
+                    title: `Episode ${e.episode}`,
+                    episode: e.episode,
+                    preview: e.preview,
+                    streaming_link: e.url,
+                })),
+            };
         }
 
         return c.json({
             meta: meta!,
-            episodes: episodes!,
+            details: details!,
         });
     }
 )

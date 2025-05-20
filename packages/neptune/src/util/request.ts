@@ -4,12 +4,12 @@ export async function request(
     url: string,
     method: 'get' | 'post' | 'put' | 'delete',
     headers: Record<string, string>,
-    query: Record<string, string>,
+    query: Record<string, (string | number)>,
 ) {
     const reqUrl = new URL(url);
 
     for (const [key, value] of Object.entries(query)) {
-        reqUrl.searchParams.set(key, value);
+        reqUrl.searchParams.set(key, value.toString());
     }
 
     const req = await fetch(reqUrl, { method, headers });

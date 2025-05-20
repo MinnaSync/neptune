@@ -20,12 +20,24 @@ export type AnimeMedia = {
 
     title: {
         english: string;
+		romaji: string;
+		native: string;
     };
     description: string | null;
 
+	seasonYear: number;
     format: string;
-    meanScore: number | null;
+    meanScore: number;
+	popularity: number;
     genres: string[];
+	studios: {
+		nodes: { name: string }[];
+	};
+	trailer: {
+		id: string;
+		site: string;
+		thumbnail: string;
+	};
     isAdult: boolean;
 
 	streamingEpisodes: {
@@ -49,17 +61,32 @@ export const ANIME_MEDIA_QUERY =  gql`
 
 			title {
 				english
+				romaji
+				native
 			}
 			description
 
+			seasonYear
+			nextAiringEpisode {
+			airingAt
+			episode
+			}
+
 			format
 			meanScore
+			popularity
 			genres
-			isAdult
-
-			streamingEpisodes {
-				title
+			studios {
+				nodes {
+					name
+				}
 			}
+			trailer {
+				id
+				site
+				thumbnail
+			}
+			isAdult
 		}
 	}
 `;
