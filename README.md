@@ -1,5 +1,5 @@
 # Neptune
-Consistently structured APIs for accessing information and links for various anime sources.
+Consistently structured APIs for accessing information and links for various anime sources. 
 
 ## Acknowledgements
-- Originally inspired by [Consumet](https://github.com/consumet).
+- This package is inspired off of [Consumet](https://github.com/consumet/), an API that allows you to fetch information and streaming links for an anime.

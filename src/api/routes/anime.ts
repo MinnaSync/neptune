@@ -1,4 +1,4 @@
-import type { AnimeInfo, AnimeSearch, AnimeStreams } from "api-types";
+import type { AnimeInfo, AnimeSearch, AnimeStreams } from "../types";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
