@@ -19,9 +19,9 @@ export type AnimeMedia = {
     bannerImage: string | null;
 
     title: {
-        english: string;
-		romaji: string;
-		native: string;
+        english: string | null;
+		romaji: string| null;
+		native: string | null;
     };
     description: string | null;
 
