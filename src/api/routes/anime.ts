@@ -3,9 +3,11 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 
-import anilist from "../../resources/anilist";
-import animepahe from "../../providers/animepahe";
 import client from "../client";
+import anilist from "../../resources/anilist";
+import jikan from "../../resources/jikan";
+import animeIds, { type AnimeIds, Resource } from "../../resources/animeIDs";
+import animepahe from "../../providers/animepahe";
 
 const app = new Hono()
 // GET /meta
@@ -13,7 +15,7 @@ const app = new Hono()
     "/meta",
     zValidator('query', z.object({
         id: z.string(),
-        resource: z.enum(['anilist']),
+        resource: z.enum(['anilist', 'mal']),
     })),
     async (c) => {
         const { id, resource } = c.req.query();
@@ -45,6 +47,54 @@ const app = new Hono()
                     platform: anilistData.trailer.site,
                 } : null,
             };
+        } else if (resource === "mal") {
+            const malInfo = await jikan.getAnime(parseInt(id));
+
+            if (malInfo.isErr()) {
+                c.status(500);
+                return c.json({
+                    success: false,
+                    message: 'failed to fetch anime info.',
+                    data: null,
+                });
+            }
+
+            const { data } = malInfo.value;
+
+            meta = {
+                id: data.mal_id,
+                color: null,
+                poster:
+                    data.images.jpg.large_image_url ||
+                    data.images.jpg.image_url,
+                background: null,
+                title: {
+                    english: data.title_english || null,
+                    romaji: data.title,
+                    native: data.title_japanese,
+                },
+                description: data.synopsis || null,
+                year: data.year,
+                type: data.type,
+                rating: data.score,
+                genres: data.genres.map((g) => g.name),
+                studios: data.studios.map((s) => s.name),
+                is_nsfw: data.rating.startsWith("R"),
+                trailer: data.trailer ? {
+                    /**
+                     * I think MAL only uses youtube as a trailer site.
+                     */
+                    id: data.trailer.youtube_id,
+                    platform: 'youtube',
+                } : null,
+            };
+        } else {
+            c.status(403);
+            return c.json({
+                success: false,
+                message: "invalid resource.",
+                data: null,
+            });
         }
         
         return c.json(meta!);
@@ -55,12 +105,11 @@ const app = new Hono()
     "/info",
     zValidator('query', z.object({
         id: z.string(),
-        resource: z.enum(['anilist']),
         provider: z.enum(['animepahe']),
         page: z.string().optional(),
     })),
     async (c) => {
-        const { id, resource, provider, page } = c.req.query();
+        const { id, provider, page } = c.req.query();
 
         let meta: AnimeInfo['meta'];
         let details: AnimeInfo['details'];
@@ -70,43 +119,161 @@ const app = new Hono()
 
             if (animepaheInfo.isErr()) {
                 c.status(500);
-                return c.json({});
-            } 
-
-            if (resource === "anilist") {
-                const url = animepaheInfo.value.externalLinks.find(el => el.type === "AniList")?.url;
-                if (!url) {
-                    c.status(404);
-                    return c.json({});
-                };
-
-                const res = await client.anime.meta.$get({
-                    query: { id: url.split('/').pop()!, resource: "anilist" },
+                return c.json({
+                    success: false,
+                    message: animepaheInfo.error.message,
+                    data: null,
                 });
+            }
 
-                if (!res.ok) {
-                    c.status(500);
-                    return c.json({});
+            let ids: { mal: number; anilist: number; } = { mal: 0, anilist: 0 };
+            for (const url of animepaheInfo.value.externalLinks) {
+                let mappedIds: AnimeIds | undefined = undefined;
+
+                switch (url.type) {
+                    case "AniList":
+                        const anilistId = url.url.split('/').pop()!;
+                        const anilistLinked = await animeIds.fromResource(Resource.ANILIST, anilistId);
+
+                        if (anilistLinked.isErr()) {
+                            continue;
+                        }
+
+                        mappedIds = anilistLinked.value;
+
+                        break;
+                    case "MAL":
+                        const malId = url.url.split('/').pop()!;
+                        const malLinked = await animeIds.fromResource(Resource.MAL, malId);
+
+                        if (malLinked.isErr()) {
+                            continue;
+                        }
+
+                        mappedIds = malLinked.value;
+
+                        break;
+                    case "AniDB":
+                        const anidbId = url.url.split('/').pop()!;
+                        const anidbLinked = await animeIds.fromResource(Resource.ANIDB, anidbId);
+
+                        if (anidbLinked.isErr()) {
+                            continue;
+                        }
+
+                        mappedIds = anidbLinked.value;
+
+                        break;
                 }
 
-                meta = await res.json();
+                if (mappedIds === undefined) {
+                    c.status(503);
+
+                    return c.json({
+                        success: false,
+                        message: 'failed to map ids.',
+                        data: null,
+                    });
+                }
+
+                if (mappedIds.anilist_id) {
+                    ids.anilist = mappedIds.anilist_id;
+                }
+
+                if (mappedIds.mal_id) {
+                    ids.mal = mappedIds.mal_id;
+                }
+
+                break;
             }
+
+            const metaRes = await client.anime.meta.$get({
+                query: { id: ids.anilist.toString(), resource: "anilist" },
+            });
+
+            if (!metaRes.ok) {
+                c.status(500);
+                return c.json({
+                    success: false,
+                    message: 'failed to fetch anime info.',
+                    data: null,
+                });
+            }
+            meta = await metaRes.json() as AnimeInfo['meta'];
+
+            /**
+             * This is done to make sure all pages necessary are fetched.
+             * In the event that an episode is on another page, it will fetch that page.
+             */
+            const neededPages = new Set(animepaheInfo.value.episodes.list.map((e) => Math.ceil(e.episode / 100)));
+            const pages = await Promise.all(Array.from(neededPages).map(async (page) => {
+                const episodes = await jikan.getEpisodes(ids.mal, { page: page });
+
+                if (episodes.isErr()) {
+                    return {
+                        page,
+                        episodes: [],
+                    };
+                }
+
+                return {
+                    page,
+                    episodes: episodes.value.data,
+                };
+            }));
 
             details = {
                 hasNextPage: animepaheInfo.value.episodes.hasNextPage,
-                episodes: animepaheInfo.value.episodes.list.map((e) => ({
-                    id: e.id,
-                    title: `Episode ${e.episode}`,
-                    episode: e.episode,
-                    preview: e.preview,
-                    streaming_link: e.url,
-                })),
+                episodes: animepaheInfo.value.episodes.list.reduce((acc, e) => {
+                    const page = pages.find((p) => p.page === Math.ceil(e.episode / 100));
+                    if (!page) return [
+                        ...acc,
+                        {
+                            id: e.id,
+                            title: `Episode ${e.episode}`,
+                            episode: e.episode,
+                            preview: e.preview,
+                            streaming_link: e.url,
+                        }
+                    ];
+
+                    const episode = page.episodes.find((ep) => ep.mal_id === e.episode);
+                    if (!episode) return [
+                        ...acc,
+                        {
+                            id: e.id,
+                            title: `Episode ${e.episode}`,
+                            episode: e.episode,
+                            preview: e.preview,
+                            streaming_link: e.url,
+                        }
+                    ];
+
+                    return [
+                        ...acc,
+                        {
+                            id: e.id,
+                            title: episode.title,
+                            episode: e.episode,
+                            preview: e.preview,
+                            streaming_link: episode.url,
+                        },
+                    ];
+
+                }, [] as AnimeInfo['details']['episodes']),
             };
+        } else {
+            c.status(403);
+            return c.json({
+                success: false,
+                message: "invalid provider.",
+                data: null,
+            });
         }
 
         return c.json({
-            meta: meta!,
-            details: details!,
+            meta: meta,
+            details: details,
         });
     }
 )
