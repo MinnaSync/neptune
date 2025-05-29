@@ -226,24 +226,17 @@ const app = new Hono()
 
             /**
              * All of this is to ensure episode titles are mapped properly.
-             * We reverse the original list to make sure they are in the correct order from the starting ep.
-             * Then we sort it back into descending order.
-             * 
-             * This is a very scuffed and weird way to handle this I think, should revisit in the future to improve it, mainly for performance.
+             * We use the total and from to determine if the session is a separate season.
+             * If it was, we'll use the total and index to determine the actual episode number.
              */
             const startingEp = episodes.list[0].episode;
-            const episodesList = episodes.list.reverse();
+            const episodesList = episodes.list;
             details = {
                 hasNextPage: episodes.hasNextPage,
-                episodes: episodesList.reduce((acc, e) => {
-                    /**
-                     * The total minus the from minus one is usually not the same when it's a separate season.
-                     * It drives me nuts that animepahe does it this way.
-                     * It's insane when you realize all of this is just to get the episode title...
-                     */
+                episodes: episodesList.reduce((acc, e, index) => {
                     const epNumber = startingEp === episodes.total - (episodes.from - 1)
                         ? e.episode
-                        : (startingEp - e.episode + 1);
+                        : episodes.total - index;
                     const page = pages.find((p) => p.page === Math.ceil(epNumber / 100));
 
                     if (!page) return [
@@ -280,7 +273,7 @@ const app = new Hono()
                         },
                     ];
 
-                }, [] as AnimeInfo['details']['episodes']).sort((a, b) => b.episode - a.episode),
+                }, [] as AnimeInfo['details']['episodes']),
             };
         } else {
             c.status(403);
