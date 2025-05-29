@@ -4,13 +4,20 @@ import { request } from "../util/request";
 import kwik from "./extractors/kwik";
 import cache from "../util/cache";
 
-type AnimeInfo = {
+type AnimePage = {
     externalLinks: {
         type: string;
         url: string;
     }[];
+};
+
+type AnimeInfo = {
+    page: AnimePage;
     episodes: {
         hasNextPage: boolean;
+        from: number;
+        to: number;
+        total: number;
         list: {
             id: string;
             preview: string;
@@ -20,7 +27,7 @@ type AnimeInfo = {
     };
 };
 
-type AnimeEpisodes = {
+type AnimeEpisode = {
     id: number;
     anime_id: number;
     episode: number;
@@ -32,7 +39,7 @@ type AnimeEpisodes = {
     audio: string;
     duration: string;
     session: string;
-    filter: number;
+    filler: number;
     created_at: string;
 };
 
@@ -142,9 +149,12 @@ async function getEpisodes(query: { id: string; sort?: "episode_asc" | "episode_
         return res;
     }
 
-    const result: APIResponse<AnimeEpisodes[]> = res.value;
+    const result: APIResponse<AnimeEpisode[]> = res.value;
     const episodes: AnimeInfo['episodes'] =  {
         hasNextPage: result.current_page < result.last_page,
+        from: result.from,
+        to: result.to,
+        total: result.total,
         list: result.data.map((ep) => ({
             id: `${query.id}/${ep.session}`,
             preview: ep.snapshot,
@@ -160,10 +170,10 @@ async function getEpisodes(query: { id: string; sort?: "episode_asc" | "episode_
 
 /**
  * Get the page information for an anime.
- * @param id  The ID of the anime.
+ * @param id The ID of the anime.
  */
 async function getAnimePage(id: string) {
-    const cached = await cache.jsonGet<AnimeInfo['externalLinks']>(`animepahe:info:${id}`);
+    const cached = await cache.jsonGet<AnimePage>(`animepahe:info:${id}`);
     if (cached) return okAsync(cached);
 
     const res = await request(new URL(`/anime/${id}`, BASE_URL).toString(), 'get', HEADERS(id), {});
@@ -175,7 +185,10 @@ async function getAnimePage(id: string) {
     const html = res.value;
     const $ = cheerio.load(html);
 
-    const externalLinks: AnimeInfo['externalLinks'] = [];
+    /**
+     * Gets the external links relating to the anime.
+     */
+    const externalLinks: AnimePage['externalLinks'] = [];
     for (const el of $('.external-links > a').toArray()) {
         const type = $(el).text().trim();
         const link = $(el).attr('href')?.trim().replace(/^\/+/, ''); // links for some reason have 2 leading slashes.
@@ -184,10 +197,14 @@ async function getAnimePage(id: string) {
 
         externalLinks.push({ type, url: `https://${link}` });
     }
+    
+    const info: AnimePage = {
+        externalLinks
+    };
 
-    await cache.jsonSet(`animepahe:info:${id}`, externalLinks, 60 * 60 * 7);
+    await cache.jsonSet(`animepahe:info:${id}`, info, 60 * 60 * 7);
 
-    return okAsync(externalLinks);
+    return okAsync(info);
 }
 
 /**
@@ -206,7 +223,7 @@ async function getAnime(id: string, query?: { page?: string }) {
     }
 
     const animeInfo: AnimeInfo = {
-        externalLinks: page.value,
+        page: page.value,
         episodes: episodes.value,
     }
 

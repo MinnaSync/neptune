@@ -126,8 +126,10 @@ const app = new Hono()
                 });
             }
 
+            const { page: info, episodes } = animepaheInfo.value;
+
             let ids: { mal: number; anilist: number; } = { mal: 0, anilist: 0 };
-            for (const url of animepaheInfo.value.externalLinks) {
+            for (const url of info.externalLinks) {
                 let mappedIds: AnimeIds | undefined = undefined;
 
                 switch (url.type) {
@@ -205,7 +207,7 @@ const app = new Hono()
              * This is done to make sure all pages necessary are fetched.
              * In the event that an episode is on another page, it will fetch that page.
              */
-            const neededPages = new Set(animepaheInfo.value.episodes.list.map((e) => Math.ceil(e.episode / 100)));
+            const neededPages = new Set(episodes.list.map((e) => Math.ceil(e.episode / 100)));
             const pages = await Promise.all(Array.from(neededPages).map(async (page) => {
                 const episodes = await jikan.getEpisodes(ids.mal, { page: page });
 
@@ -222,28 +224,46 @@ const app = new Hono()
                 };
             }));
 
+            /**
+             * All of this is to ensure episode titles are mapped properly.
+             * We reverse the original list to make sure they are in the correct order from the starting ep.
+             * Then we sort it back into descending order.
+             * 
+             * This is a very scuffed and weird way to handle this I think, should revisit in the future to improve it, mainly for performance.
+             */
+            const startingEp = episodes.list[0].episode;
+            const episodesList = episodes.list.reverse();
             details = {
-                hasNextPage: animepaheInfo.value.episodes.hasNextPage,
-                episodes: animepaheInfo.value.episodes.list.reduce((acc, e) => {
-                    const page = pages.find((p) => p.page === Math.ceil(e.episode / 100));
+                hasNextPage: episodes.hasNextPage,
+                episodes: episodesList.reduce((acc, e) => {
+                    /**
+                     * The total minus the from minus one is usually not the same when it's a separate season.
+                     * It drives me nuts that animepahe does it this way.
+                     * It's insane when you realize all of this is just to get the episode title...
+                     */
+                    const epNumber = startingEp === episodes.total - (episodes.from - 1)
+                        ? e.episode
+                        : (startingEp - e.episode + 1);
+                    const page = pages.find((p) => p.page === Math.ceil(epNumber / 100));
+
                     if (!page) return [
                         ...acc,
                         {
                             id: e.id,
-                            title: `Episode ${e.episode}`,
-                            episode: e.episode,
+                            title: `Episode ${epNumber}`,
+                            episode: epNumber,
                             preview: e.preview,
                             streaming_link: e.url,
                         }
                     ];
 
-                    const episode = page.episodes.find((ep) => ep.mal_id === e.episode);
+                    const episode = page.episodes.find((ep) => ep.mal_id === epNumber);
                     if (!episode) return [
                         ...acc,
                         {
                             id: e.id,
-                            title: `Episode ${e.episode}`,
-                            episode: e.episode,
+                            title: `Episode ${epNumber}`,
+                            episode: epNumber,
                             preview: e.preview,
                             streaming_link: e.url,
                         }
@@ -254,13 +274,13 @@ const app = new Hono()
                         {
                             id: e.id,
                             title: episode.title,
-                            episode: e.episode,
+                            episode: epNumber,
                             preview: e.preview,
                             streaming_link: episode.url,
                         },
                     ];
 
-                }, [] as AnimeInfo['details']['episodes']),
+                }, [] as AnimeInfo['details']['episodes']).sort((a, b) => b.episode - a.episode),
             };
         } else {
             c.status(403);
