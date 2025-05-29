@@ -276,7 +276,7 @@ const app = new Hono()
                             title: episode.title,
                             episode: epNumber,
                             preview: e.preview,
-                            streaming_link: episode.url,
+                            streaming_link: e.url,
                         },
                     ];
 
