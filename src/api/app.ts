@@ -6,7 +6,7 @@ import { cors } from "hono/cors";
 const app = new Hono();
 app.use(middleware.logRequest);
 app.use(cors({
-    origin: "https://minna.gura.sa.com",
+    origin: "https://sync.minna.now",
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 }))
 
