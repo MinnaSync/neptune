@@ -311,6 +311,11 @@ const app = new Hono()
                 return c.json({});
             }
 
+            if (!queryResults.value.data) {
+                c.status(404);
+                return c.json({});
+            }
+
             results.results = queryResults.value.data.map((r) => ({
                 id: r.session,
                 title: r.title,

@@ -239,7 +239,7 @@ async function searchAnime(query: { q: string; }) {
         return res;
     }
 
-    const result: APIResponse<SearchResults[]> = res.value;
+    const result: APIResponse<SearchResults[] | undefined> = res.value;
 
     return okAsync(result);
 }
