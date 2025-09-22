@@ -7,7 +7,7 @@ import { evalSync } from "../../util/vm";
  */
 async function extract(url: string) {
     const res = await fetch(url, {
-        headers: { referer: "https://animepahe.ru/" }
+        headers: { referer: "https://animepahe.si/" }
     });
 
     if (res.status !== 200) {

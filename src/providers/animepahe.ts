@@ -73,7 +73,7 @@ type APIResponse<T> = {
     data: T;
 };
 
-const BASE_URL = 'https://animepahe.ru';
+const BASE_URL = 'https://animepahe.si';
 
 const HEADERS = (session?: string) => ({
     accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -82,7 +82,7 @@ const HEADERS = (session?: string) => ({
     'connection': 'keep-alive',
     cookie: '__ddg2_=;',
     dnt: '1',
-    host: 'animepahe.ru',
+    host: 'animepahe.si',
     referer: session ? `${BASE_URL}/anime/${session}` : BASE_URL,
     'set-fetch-dest': 'empty',
     'set-fetch-mode': 'cors',
@@ -159,7 +159,7 @@ async function getEpisodes(query: { id: string; sort?: "episode_asc" | "episode_
             id: `${query.id}/${ep.session}`,
             preview: ep.snapshot,
             episode: ep.episode,
-            url: `https://animepahe.ru/play/${query.id}/${ep.session}`,
+            url: `https://animepahe.si/play/${query.id}/${ep.session}`,
         }))
     }
 
