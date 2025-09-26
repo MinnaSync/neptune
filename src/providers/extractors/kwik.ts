@@ -25,7 +25,9 @@ async function extract(url: string) {
      */
     const result = evalSync(script).match(/https.*?m3u8/)[0];
 
-    return result;
+    // temporarily force to vault-15, any other vault is giving TLS handshake errors.
+    // this isnt reliable...
+    return result.replace(/vault-\d+/g, "vault-15");
 }
 
 export default {
