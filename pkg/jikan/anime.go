@@ -122,6 +122,37 @@ func (s *Anime) GetAnimeById(ctx context.Context, id int) (*Result[*AnimeInfoBas
 	return info, resp, nil
 }
 
+type AnimeEpisode struct {
+	MalID         int    `json:"mal_id"`
+	URL           string `json:"url"`
+	Title         string `json:"title"`
+	TitleJapanese string `json:"title_japanese"`
+	TitleEnglish  string `json:"title_english"`
+	Duration      int    `json:"duration"`
+	Aired         string `json:"aired"`
+	Filler        bool   `json:"filler"`
+	Recap         bool   `json:"recap"`
+	Synopsis      string `json:"synopsis"`
+	ForumURL      string `json:"forum_url"`
+}
+
+func (s *Anime) GetAnimeEpisodes(ctx context.Context, id int, page int) (*PaginatedResults[[]AnimeEpisode], *http.Response, error) {
+	u := fmt.Sprintf("/v4/anime/%d/episodes?page=%d", id, page)
+
+	req, err := s.client.NewGetRequest(u)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	results := new(PaginatedResults[[]AnimeEpisode])
+	resp, err := s.client.Do(ctx, req, results)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return results, resp, nil
+}
+
 func (s *Anime) GetAnimeSearch(ctx context.Context, query url.Values) (*PaginatedResults[[]AnimeInfoBase], *http.Response, error) {
 	u := fmt.Sprintf("/v4/anime?%s", query.Encode())
 
