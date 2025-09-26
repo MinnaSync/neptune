@@ -14,6 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
+	"golang.org/x/text/language"
 )
 
 type Services struct {
@@ -197,10 +198,15 @@ func (h *AnimeLookupUsecase) GetStreamingLinks(ctx context.Context, id int, prov
 		}
 
 		for _, link := range links {
+			lang, err := language.All.Parse(link.Language)
+			if err != nil {
+				log.WithError(err).Error("Failed to parse language.")
+			}
+
 			episodeLinks = append(episodeLinks, uc.AnimeEpisodeLinks{
 				URL:        link.URL,
 				Resolution: link.Resolution,
-				Language:   link.Language,
+				Language:   lang.String(),
 				Subtitles:  []uc.AnimeEpisodeSubtitles{},
 			})
 		}
