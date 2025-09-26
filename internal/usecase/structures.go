@@ -27,9 +27,11 @@ type AnimeInfo struct {
 }
 
 type AnimeEpisode struct {
-	ID       any    `json:"id"` // could be string or int
-	Episode  int    `json:"episode"`
-	Snapshot string `json:"snapshot"`
+	ID       any     `json:"id"` // could be string or int
+	Episode  int     `json:"episode"`
+	Title    string  `json:"title"`
+	Synopsis *string `json:"synopsis"`
+	Snapshot string  `json:"snapshot"`
 }
 
 type AnimeEpisodeSubtitles struct {

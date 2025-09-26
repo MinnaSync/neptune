@@ -154,6 +154,7 @@ func (h *AnimeLookupUsecase) GetEpisodes(ctx context.Context, id int, provider s
 			for _, episode := range episodes.Data {
 				eps = append(eps, uc.AnimeEpisode{
 					ID:       episode.Session,
+					Title:    fmt.Sprintf("Episode %d", episode.Episode),
 					Episode:  episode.Episode,
 					Snapshot: episode.Snapshot,
 				})
@@ -165,6 +166,7 @@ func (h *AnimeLookupUsecase) GetEpisodes(ctx context.Context, id int, provider s
 		for _, episode := range *cachedEpisodes {
 			eps = append(eps, uc.AnimeEpisode{
 				ID:       episode.Session,
+				Title:    fmt.Sprintf("Episode %d", episode.Episode),
 				Episode:  episode.Episode,
 				Snapshot: episode.Snapshot,
 			})
