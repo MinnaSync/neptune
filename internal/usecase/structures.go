@@ -32,8 +32,14 @@ type AnimeEpisode struct {
 	Snapshot string `json:"snapshot"`
 }
 
+type AnimeEpisodeSubtitles struct {
+	Language string `json:"language"`
+	URL      string `json:"url"`
+}
+
 type AnimeEpisodeLinks struct {
-	URL        string `json:"url"`
-	Resolution string `json:"resolution"`
-	Language   string `json:"language"`
+	URL        string                  `json:"url"`
+	Resolution string                  `json:"resolution"`
+	Language   string                  `json:"language"`
+	Subtitles  []AnimeEpisodeSubtitles `json:"subtitles"`
 }

@@ -201,6 +201,7 @@ func (h *AnimeLookupUsecase) GetStreamingLinks(ctx context.Context, id int, prov
 				URL:        link.URL,
 				Resolution: link.Resolution,
 				Language:   link.Language,
+				Subtitles:  []uc.AnimeEpisodeSubtitles{},
 			})
 		}
 
